@@ -73,7 +73,7 @@ jobs:
           EXPECTED_ARCH: ${{ matrix.expected_arch }}
         run: |
           set -euo pipefail
-          APP="build/bin/HarnessStudio.app"
+          APP="build/bin/Harness Studio.app"
           EXECUTABLE="$APP/Contents/MacOS/HarnessStudio"
           test -d "$APP"
           test -x "$EXECUTABLE"
@@ -93,7 +93,7 @@ jobs:
           mkdir -p dist
           PACKAGE="HarnessStudio-2.0.0-macos-${PACKAGE_SUFFIX}.zip"
           ditto -c -k --sequesterRsrc --keepParent \
-            build/bin/HarnessStudio.app "dist/$PACKAGE"
+            "build/bin/Harness Studio.app" "dist/$PACKAGE"
           (
             cd dist
             shasum -a 256 "$PACKAGE" > "$PACKAGE.sha256"
