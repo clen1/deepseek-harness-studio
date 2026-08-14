@@ -4,6 +4,15 @@ Harness Studio 是 DeepSeek Harness 的跨平台可视化部署与运行控制�
 
 > 本项目由社区独立开发，与 DeepSeek 官方无隶属、授权或背书关系。DeepSeek 及相关名称归其权利人所有。
 
+## 下载
+
+- [Windows x64 EXE](https://github.com/clen1/deepseek-harness-studio/releases/download/v2.0.0/HarnessStudio.exe)
+- [Windows x64 ZIP](https://github.com/clen1/deepseek-harness-studio/releases/download/v2.0.0/HarnessStudio-2.0.0-windows-x64.zip)
+- [macOS Apple Silicon（M1/M2/M3/M4）](https://github.com/clen1/deepseek-harness-studio/releases/download/v2.0.0/HarnessStudio-2.0.0-macos-arm64.zip)
+- [macOS Intel](https://github.com/clen1/deepseek-harness-studio/releases/download/v2.0.0/HarnessStudio-2.0.0-macos-x64.zip)
+
+macOS 测试包已进行临时签名，尚未使用 Apple Developer ID 完成公证。请先核对 Release 中的 SHA-256；如果系统拦截，可在“系统设置 → 隐私与安全性”中确认“仍要打开”。
+
 ## 已实现功能
 
 - 一键下载、校验、安装并启动 DeepSeek Harness
@@ -36,6 +45,8 @@ chmod +x scripts/build-current.sh
 ```
 
 输出文件位于 `build/bin`。跨平台桌面应用需要在对应系统上完成最终编译：Windows 生成 `.exe`，macOS 生成 `.app`，Linux 生成原生可执行文件。
+
+仓库中的 `Build macOS` GitHub Actions 工作流会分别在 Apple Silicon 和 Intel Mac 上执行测试、构建、架构检查、临时签名与 ZIP 打包，并可把产物附加到指定 Release。
 
 ## 开发运行
 
