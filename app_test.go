@@ -136,3 +136,55 @@ func TestManagedDirectoriesStayUnderConfigRoot(t *testing.T) {
 		t.Fatalf("install root is outside user config: %s", app.installRoot)
 	}
 }
+
+func TestRemoveManagedInstallRoot(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "HarnessStudio", "engine")
+	if err := os.MkdirAll(filepath.Join(root, "package", "node_modules"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	marker := filepath.Join(root, "package", "node_modules", "installed.txt")
+	if err := os.WriteFile(marker, []byte("managed"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := removeManagedInstallRoot(root); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(root); !os.IsNotExist(err) {
+		t.Fatalf("managed root still exists after uninstall: %v", err)
+	}
+}
+
+func TestRemoveManagedInstallRootRejectsUnsafePath(t *testing.T) {
+	unsafe := filepath.Join(t.TempDir(), "downloads")
+	if err := removeManagedInstallRoot(unsafe); err == nil {
+		t.Fatal("expected non-engine directory to be rejected")
+	}
+}
+
+func TestUninstallWorkerKeepsConfig(t *testing.T) {
+	root := t.TempDir()
+	app := NewApp()
+	app.installRoot = filepath.Join(root, "HarnessStudio", "engine")
+	app.configFile = filepath.Join(root, "HarnessStudio", "config.json")
+	if err := os.MkdirAll(filepath.Join(app.installRoot, "node"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(app.installRoot, "node", "runtime.txt"), []byte("runtime"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := app.persistConfig(defaultConfig()); err != nil {
+		t.Fatal(err)
+	}
+
+	app.uninstallWorker(nil, 1)
+
+	if app.job.Phase != "success" || app.job.Type != "uninstall" {
+		t.Fatalf("unexpected uninstall result: %+v", app.job)
+	}
+	if entries, err := os.ReadDir(app.installRoot); err != nil || len(entries) != 0 {
+		t.Fatalf("install directory was not emptied: entries=%d err=%v", len(entries), err)
+	}
+	if _, err := os.Stat(app.configFile); err != nil {
+		t.Fatalf("configuration was removed: %v", err)
+	}
+}

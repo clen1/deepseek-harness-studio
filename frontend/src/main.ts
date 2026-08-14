@@ -11,6 +11,7 @@ import {
     StartService,
     StopService,
     TestCurrentRegistry,
+    Uninstall,
 } from '../wailsjs/go/main/App';
 import {EventsOn, Quit, WindowMinimise, WindowToggleMaximise} from '../wailsjs/runtime/runtime';
 import type {main} from '../wailsjs/go/models';
@@ -42,6 +43,7 @@ const iconPaths: Record<string, string> = {
     package: '<path d="m12 3 8 4-8 4-8-4 8-4Z"/><path d="m4 7 8 4 8-4v10l-8 4-8-4V7Zm8 4v10"/>',
     activity: '<path d="M3 12h4l2-7 4 14 2-7h6"/>',
     wand: '<path d="m15 4 5 5L9 20l-5-5L15 4Z"/><path d="m6 3 .5 2L8 6l-1.5.5L6 8l-.5-1.5L4 6l1.5-1L6 3Zm13 11 .5 1.5L21 16l-1.5.5L19 18l-.5-1.5L17 16l1.5-.5L19 14Z"/>',
+    trash: '<path d="M4 7h16M9 7V4h6v3m3 0-1 14H7L6 7m4 4v6m4-6v6"/>',
 };
 
 const icon = (name: string, size = 18): string =>
@@ -55,7 +57,7 @@ app.innerHTML = `
         <div class="titlebar-drag">
             <div class="app-mark">H</div>
             <span>Harness Studio</span>
-            <span class="title-version">2.0</span>
+            <span class="title-version">2.1</span>
         </div>
         <div class="window-actions">
             <button class="window-button" data-action="minimise" aria-label="最小化"><span></span></button>
@@ -172,7 +174,10 @@ app.innerHTML = `
                     <article class="install-location-card">
                         <span class="location-icon">${icon('folder', 19)}</span>
                         <div><strong>程序安装位置</strong><p id="install-path-value">正在读取安装目录…</p></div>
-                        <button class="secondary-button" data-action="open-folder">${icon('folder', 15)}打开安装目录</button>
+                        <div class="location-actions">
+                            <button class="secondary-button" data-action="open-folder">${icon('folder', 15)}打开安装目录</button>
+                            <button class="danger-button hidden" data-action="uninstall" id="uninstall-button">${icon('trash', 15)}一键卸载</button>
+                        </div>
                     </article>
                     <div class="hidden" id="activity-list"></div>
                 </section>
@@ -325,7 +330,7 @@ function applyStatus(status: Status, syncForm = false): void {
     $('#service-pulse').classList.toggle('online', online);
     const header = $('#header-status');
     header.className = `status-pill ${status.job.phase === 'running' ? 'ready' : (online ? 'online' : (status.installed ? 'ready' : ''))}`;
-    header.querySelector('b')!.textContent = status.job.phase === 'running' ? '正在安装' : (online ? '可以使用' : (status.installed ? '可以启动' : '等待安装'));
+    header.querySelector('b')!.textContent = status.job.phase === 'running' ? (status.job.type === 'uninstall' ? '正在卸载' : '正在安装') : (online ? '可以使用' : (status.installed ? '可以启动' : '等待安装'));
     $('#network-dot').classList.toggle('online', status.config.registryUrl.length > 0);
 
     const serviceButton = $<HTMLButtonElement>('#service-button');
@@ -340,9 +345,12 @@ function applyStatus(status: Status, syncForm = false): void {
 
     const deployButton = $('#install-button') as HTMLButtonElement;
     deployButton.disabled = status.job.phase === 'running';
-    deployButton.classList.toggle('hidden', status.installed && status.job.phase !== 'running');
+    deployButton.classList.toggle('hidden', (status.job.type === 'uninstall' && status.job.phase === 'running') || (status.installed && status.job.phase !== 'running'));
     setText('#deploy-button-text', status.job.phase === 'running' ? '正在自动安装…' : '立即安装并打开');
-    $('#cancel-button').classList.toggle('hidden', status.job.phase !== 'running');
+    $('#cancel-button').classList.toggle('hidden', status.job.phase !== 'running' || status.job.type !== 'deploy');
+    const uninstallButton = $<HTMLButtonElement>('#uninstall-button');
+    uninstallButton.classList.toggle('hidden', (!status.installed && !status.nodeReady) || status.job.phase === 'running');
+    uninstallButton.disabled = status.job.phase === 'running';
     applyJob(status.job);
     updateSteps(status);
     renderActivity();
@@ -358,7 +366,11 @@ function applyJob(job: Status['job']): void {
     const progress = Math.max(0, Math.min(100, job.progress || 0));
     let friendlyTitle = job.title || '等待安装';
     let friendlyMessage = job.message || '第一次安装通常需要几分钟，请保持网络连接。';
-    if (job.phase === 'running') {
+    const uninstalling = job.type === 'uninstall';
+    if (uninstalling && job.phase === 'running') {
+        friendlyTitle = job.title || '正在卸载';
+        friendlyMessage = job.message || '正在安全移除 Harness 和运行环境。';
+    } else if (job.phase === 'running') {
         if (progress < 8) {
             friendlyTitle = '正在检查这台电脑';
             friendlyMessage = '马上开始下载，请保持网络连接。';
@@ -372,6 +384,9 @@ function applyJob(job: Status['job']): void {
             friendlyTitle = '马上就好';
             friendlyMessage = '正在检查安装结果并准备打开。';
         }
+    } else if (uninstalling && job.phase === 'success') {
+        friendlyTitle = '卸载完成';
+        friendlyMessage = '已移除 Harness 和运行环境，可随时重新安装。';
     } else if (job.phase === 'success') {
         friendlyTitle = '安装完成';
         friendlyMessage = 'DeepSeek Harness 已经可以使用。';
@@ -381,9 +396,15 @@ function applyJob(job: Status['job']): void {
     setText('#progress-title', friendlyTitle);
     setText('#progress-message', friendlyMessage);
     $('#progress-wrap').className = `progress-wrap ${job.phase}`;
-    if (job.phase === 'running') {
+    if (uninstalling && job.phase === 'running') {
+        setText('#hero-title', '正在安全卸载，请稍等');
+        setText('#hero-description', '运行服务会先停止，然后清理 Harness 和内置运行环境。');
+    } else if (job.phase === 'running') {
         setText('#hero-title', '正在自动安装，请稍等');
         setText('#hero-description', '你可以查看下方进度，安装完成后会自动打开。');
+    } else if (uninstalling && job.phase === 'success') {
+        setText('#hero-title', '卸载完成，可以重新安装');
+        setText('#hero-description', '网络和镜像设置已经保留，需要时点击按钮重新安装。');
     } else if (job.phase === 'success') {
         setText('#hero-title', '安装完成，可以开始使用');
         setText('#hero-description', '点击“打开 Harness”进入工作页面。');
@@ -545,6 +566,12 @@ async function runAction(action: string): Promise<void> {
             case 'quit': Quit(); return;
             case 'refresh': await refreshStatus(); toast('状态已刷新', 'success'); return;
             case 'open-folder': await OpenInstallDirectory(); return;
+            case 'uninstall':
+                if (!window.confirm('确认一键卸载？\n\n将删除 Harness 和内置运行环境，保留 Harness Studio 软件与网络设置。')) return;
+                await Uninstall();
+                toast('卸载已经开始，请稍等', 'info');
+                await refreshStatus();
+                return;
             case 'open-service': await OpenService(); return;
             case 'deploy':
                 await saveConfiguration(false);
@@ -629,7 +656,7 @@ if (hasWailsRuntime) {
         applyJob(job);
         updateSteps(currentStatus);
         setText('#overview-badge', job.phase === 'running' ? '···' : (currentStatus.installed ? '✓' : '1'));
-        $('#cancel-button').classList.toggle('hidden', job.phase !== 'running');
+        $('#cancel-button').classList.toggle('hidden', job.phase !== 'running' || job.type !== 'deploy');
     });
     EventsOn('studio:status', (status: Status) => applyStatus(status));
     void refreshStatus(true);

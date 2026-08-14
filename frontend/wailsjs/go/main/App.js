@@ -41,3 +41,7 @@ export function StopService() {
 export function TestCurrentRegistry() {
   return window['go']['main']['App']['TestCurrentRegistry']();
 }
+
+export function Uninstall() {
+  return window['go']['main']['App']['Uninstall']();
+}

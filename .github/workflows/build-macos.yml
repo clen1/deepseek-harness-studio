@@ -6,7 +6,7 @@ on:
       release_tag:
         description: Release tag that receives the macOS test packages
         required: false
-        default: v2.0.0
+        default: v2.1.0
         type: string
 
 permissions:
@@ -91,7 +91,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist
-          PACKAGE="HarnessStudio-2.0.0-macos-${PACKAGE_SUFFIX}.zip"
+          PACKAGE="HarnessStudio-2.1.0-macos-${PACKAGE_SUFFIX}.zip"
           ditto -c -k --sequesterRsrc --keepParent \
             "build/bin/Harness Studio.app" "dist/$PACKAGE"
           (
@@ -104,7 +104,7 @@ jobs:
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v7
         with:
-          name: HarnessStudio-2.0.0-macos-${{ matrix.suffix }}
+          name: HarnessStudio-2.1.0-macos-${{ matrix.suffix }}
           path: |
             ${{ steps.package.outputs.package }}
             ${{ steps.package.outputs.checksum }}

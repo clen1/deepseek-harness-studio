@@ -6,10 +6,10 @@ Harness Studio 是 DeepSeek Harness 的跨平台可视化部署与运行控制�
 
 ## 下载
 
-- [Windows x64 EXE](https://github.com/clen1/deepseek-harness-studio/releases/download/v2.0.0/HarnessStudio.exe)
-- [Windows x64 ZIP](https://github.com/clen1/deepseek-harness-studio/releases/download/v2.0.0/HarnessStudio-2.0.0-windows-x64.zip)
-- [macOS Apple Silicon（M1/M2/M3/M4）](https://github.com/clen1/deepseek-harness-studio/releases/download/v2.0.0/HarnessStudio-2.0.0-macos-arm64.zip)
-- [macOS Intel](https://github.com/clen1/deepseek-harness-studio/releases/download/v2.0.0/HarnessStudio-2.0.0-macos-x64.zip)
+- [Windows x64 EXE](https://github.com/clen1/deepseek-harness-studio/releases/download/v2.1.0/HarnessStudio.exe)
+- [Windows x64 ZIP](https://github.com/clen1/deepseek-harness-studio/releases/download/v2.1.0/HarnessStudio-2.1.0-windows-x64.zip)
+- [macOS Apple Silicon（M1/M2/M3/M4）](https://github.com/clen1/deepseek-harness-studio/releases/download/v2.1.0/HarnessStudio-2.1.0-macos-arm64.zip)
+- [macOS Intel](https://github.com/clen1/deepseek-harness-studio/releases/download/v2.1.0/HarnessStudio-2.1.0-macos-x64.zip)
 
 macOS 测试包已进行临时签名，尚未使用 Apple Developer ID 完成公证。请先核对 Release 中的 SHA-256；如果系统拦截，可在“系统设置 → 隐私与安全性”中确认“仍要打开”。
 
@@ -27,6 +27,7 @@ macOS 测试包已进行临时签名，尚未使用 Apple Developer ID 完成公
 - 实时事件日志、级别筛选、搜索与复制
 - 下载进度、任务取消、SHA-256 完整性校验
 - 右上角提供“安装目录”快捷按钮，首页同步显示完整路径并可一键打开
+- 首页提供一键卸载：自动停止由 Studio 启动的服务，移除 Harness 与内置运行环境，并保留网络和镜像设置
 - 原生系统 WebView、无大型前端运行框架
 
 ## 快速构建
@@ -65,7 +66,7 @@ wails dev
 
 ## 数据位置
 
-配置、独立运行时和 Harness 包均写入当前用户配置目录下的 `HarnessStudio/engine`。应用只监听 Harness 自身使用的本地地址 `127.0.0.1:3080`。代理 URL 可能包含访问凭据，配置文件权限会限制为当前用户可读写。
+网络设置写入当前用户配置目录下的 `HarnessStudio/config.json`，独立运行时和 Harness 包集中存放在 `HarnessStudio/engine`。一键卸载只清理 `engine`，保留网络设置。应用只监听 Harness 自身使用的本地地址 `127.0.0.1:3080`。代理 URL 可能包含访问凭据，配置文件权限会限制为当前用户可读写。
 
 ## 性能策略
 

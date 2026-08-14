@@ -21,3 +21,5 @@ export function StartService(arg1:boolean):Promise<void>;
 export function StopService():Promise<void>;
 
 export function TestCurrentRegistry():Promise<main.RegistryResult>;
+
+export function Uninstall():Promise<void>;

@@ -131,13 +131,15 @@ button, input, select { outline: none; }
 .hero-copy h2 { max-width: 570px; margin: 0; font-size: 27px; line-height: 1.18; letter-spacing: -.8px; }
 .hero-copy > p { max-width: 570px; margin: 11px 0 0; color: rgba(255,255,255,.55); font-size: 12px; line-height: 1.6; }
 .hero-actions { display: flex; gap: 10px; margin-top: 23px; }
-.primary-button, .secondary-button { min-height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 16px; border-radius: 10px; font-size: 11px; font-weight: 700; transition: transform .18s, box-shadow .18s, background .18s; }
+.primary-button, .secondary-button, .danger-button { min-height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 16px; border-radius: 10px; font-size: 11px; font-weight: 700; transition: transform .18s, box-shadow .18s, background .18s; }
 .primary-button { color: #fff; background: var(--brand); box-shadow: 0 7px 14px -6px rgba(67,56,202,.55); }
 .primary-button:hover { background: var(--brand-deep); box-shadow: 0 9px 18px -7px rgba(67,56,202,.65); }
 .primary-button.light { color: #191b20; background: #fff; box-shadow: 0 8px 18px -8px rgba(0,0,0,.4); }
 .primary-button.light:hover { background: #f3f4f6; }
 .secondary-button { color: var(--body); background: #fff; border: 1px solid var(--border); }
 .secondary-button:hover { color: var(--heading); background: #f8fafc; }
+.danger-button { color: var(--red); background: var(--red-soft); border: 1px solid #fecdca; }
+.danger-button:hover { color: #b42318; background: #fee4e2; }
 .secondary-button.dark { color: rgba(255,255,255,.78); background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.1); }
 .secondary-button.dark:hover { color: #fff; background: rgba(255,255,255,.13); }
 .secondary-button.dark.danger { color: #fda29b; }
@@ -209,7 +211,8 @@ button, input, select { outline: none; }
 .location-icon { width: 40px; height: 40px; display: grid; place-items: center; color: var(--brand); background: var(--brand-soft); border-radius: 11px; }
 .install-location-card strong { display: block; color: var(--heading); font-size: 10px; }
 .install-location-card p { margin: 5px 0 0; overflow: hidden; color: var(--muted); font-family: "SFMono-Regular", Consolas, monospace; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; user-select: text; }
-.install-location-card .secondary-button { min-height: 34px; }
+.location-actions { display: flex; align-items: center; gap: 8px; }
+.install-location-card .secondary-button, .install-location-card .danger-button { min-height: 34px; }
 
 .overview-grid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 17px; margin-top: 17px; }
 .panel { background: #fff; border: 1px solid rgba(16,24,40,.055); border-radius: 18px; box-shadow: var(--shadow-card); }

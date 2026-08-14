@@ -319,7 +319,7 @@ func (a *App) testRegistry(config Config, preset RegistryPreset) RegistryResult 
 	}
 	started := time.Now()
 	request, _ := http.NewRequest(http.MethodGet, strings.TrimRight(preset.URL, "/")+"/-/ping", nil)
-	request.Header.Set("User-Agent", "HarnessStudio/2.0")
+	request.Header.Set("User-Agent", "HarnessStudio/2.1")
 	response, err := client.Do(request)
 	if err != nil {
 		return RegistryResult{ID: preset.ID, LatencyMS: time.Since(started).Milliseconds(), Message: err.Error()}
@@ -352,6 +352,114 @@ func (a *App) OpenInstallDirectory() error {
 		command = exec.Command("xdg-open", a.installRoot)
 	}
 	return command.Start()
+}
+
+// Uninstall removes only the runtime and Harness package managed by Studio.
+// Network preferences are stored outside installRoot and remain available for
+// a later reinstall.
+func (a *App) Uninstall() error {
+	a.mu.Lock()
+	if a.job.Phase == "running" {
+		a.mu.Unlock()
+		return errors.New("已有任务正在运行，请等待完成后再卸载")
+	}
+	service := a.serviceCmd
+	a.mu.Unlock()
+
+	if service == nil && isPortOpen(servicePort, 300*time.Millisecond) {
+		return errors.New("检测到 Harness 正在由其他进程运行，请先关闭后再卸载")
+	}
+	if !a.hasManagedInstallFiles() {
+		return errors.New("当前没有可卸载的 Harness 文件")
+	}
+
+	startedAt := time.Now().UnixMilli()
+	initialJob := JobState{Type: "uninstall", Phase: "running", Title: "一键卸载", Message: "正在停止服务并清理安装文件", Progress: 12, StartedAt: startedAt}
+	a.mu.Lock()
+	if a.job.Phase == "running" {
+		a.mu.Unlock()
+		return errors.New("已有任务正在运行，请等待完成后再卸载")
+	}
+	a.job = initialJob
+	a.mu.Unlock()
+	if a.ctx != nil {
+		wailsruntime.EventsEmit(a.ctx, "studio:job", initialJob)
+	}
+	go a.uninstallWorker(service, startedAt)
+	return nil
+}
+
+func (a *App) uninstallWorker(service *exec.Cmd, startedAt int64) {
+	if service != nil && service.Process != nil {
+		a.log("卸载", "info", "正在停止 Harness 服务")
+		if err := service.Process.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
+			a.finishUninstall(startedAt, fmt.Errorf("无法停止 Harness 服务: %w", err))
+			return
+		}
+		a.mu.Lock()
+		if a.serviceCmd == service {
+			a.serviceCmd = nil
+		}
+		a.mu.Unlock()
+		deadline := time.Now().Add(5 * time.Second)
+		for isPortOpen(servicePort, 120*time.Millisecond) && time.Now().Before(deadline) {
+			time.Sleep(100 * time.Millisecond)
+		}
+		if isPortOpen(servicePort, 120*time.Millisecond) {
+			a.finishUninstall(startedAt, errors.New("Harness 服务仍在运行，请关闭后重试"))
+			return
+		}
+	}
+
+	a.setJob(JobState{Type: "uninstall", Phase: "running", Title: "清理安装文件", Message: "正在删除运行环境和 Harness 程序文件", Progress: 55, StartedAt: startedAt})
+	a.log("卸载", "info", "开始清理 Studio 管理的安装目录")
+	if err := removeManagedInstallRoot(a.installRoot); err != nil {
+		a.finishUninstall(startedAt, err)
+		return
+	}
+	if err := os.MkdirAll(a.installRoot, 0o755); err != nil {
+		a.finishUninstall(startedAt, fmt.Errorf("安装文件已删除，但无法重新创建空目录: %w", err))
+		return
+	}
+	a.finishUninstall(startedAt, nil)
+}
+
+func (a *App) finishUninstall(startedAt int64, uninstallError error) {
+	if uninstallError != nil {
+		a.setJob(JobState{Type: "uninstall", Phase: "error", Title: "卸载未完成", Message: uninstallError.Error(), Progress: 0, StartedAt: startedAt, FinishedAt: time.Now().UnixMilli()})
+		a.log("卸载", "error", uninstallError.Error())
+	} else {
+		a.setJob(JobState{Type: "uninstall", Phase: "success", Title: "卸载完成", Message: "Harness 和运行环境已从这台电脑移除", Progress: 100, StartedAt: startedAt, FinishedAt: time.Now().UnixMilli()})
+		a.log("卸载", "success", "Harness 与内置运行环境已安全移除，网络设置已保留")
+	}
+	a.emitStatus()
+}
+
+func (a *App) hasManagedInstallFiles() bool {
+	entries, err := os.ReadDir(a.installRoot)
+	return err == nil && len(entries) > 0
+}
+
+func removeManagedInstallRoot(root string) error {
+	clean := filepath.Clean(root)
+	absolute, err := filepath.Abs(clean)
+	if err != nil {
+		return fmt.Errorf("无法确认安装目录: %w", err)
+	}
+	volumeRoot := filepath.Clean(filepath.VolumeName(absolute) + string(os.PathSeparator))
+	if filepath.Base(absolute) != "engine" || absolute == volumeRoot || filepath.Dir(absolute) == volumeRoot {
+		return fmt.Errorf("拒绝清理非托管目录: %s", absolute)
+	}
+
+	var removeError error
+	for attempt := 0; attempt < 4; attempt++ {
+		removeError = os.RemoveAll(absolute)
+		if removeError == nil {
+			return nil
+		}
+		time.Sleep(time.Duration(attempt+1) * 250 * time.Millisecond)
+	}
+	return fmt.Errorf("部分文件无法删除，请关闭占用文件的程序后重试: %w", removeError)
 }
 
 func isPortOpen(port int, timeout time.Duration) bool {
