@@ -1,0 +1,122 @@
+name: Build macOS
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag that receives the macOS test packages
+        required: false
+        default: v2.0.0
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-macos-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build ${{ matrix.label }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: Apple Silicon
+            runner: macos-15
+            platform: darwin/arm64
+            suffix: arm64
+            expected_arch: arm64
+          - label: Intel
+            runner: macos-15-intel
+            platform: darwin/amd64
+            suffix: x64
+            expected_arch: x86_64
+
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.13.0
+
+      - name: Run Go tests
+        run: go test ./...
+
+      - name: Build macOS application
+        run: wails build -clean -platform "${{ matrix.platform }}"
+
+      - name: Validate and ad-hoc sign application
+        env:
+          EXPECTED_ARCH: ${{ matrix.expected_arch }}
+        run: |
+          set -euo pipefail
+          APP="build/bin/HarnessStudio.app"
+          EXECUTABLE="$APP/Contents/MacOS/HarnessStudio"
+          test -d "$APP"
+          test -x "$EXECUTABLE"
+          plutil -lint "$APP/Contents/Info.plist"
+          file "$EXECUTABLE" | tee executable-info.txt
+          file "$EXECUTABLE" | grep -q "$EXPECTED_ARCH"
+          xattr -cr "$APP"
+          codesign --force --deep --sign - --timestamp=none "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+
+      - name: Package application
+        id: package
+        env:
+          PACKAGE_SUFFIX: ${{ matrix.suffix }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          PACKAGE="HarnessStudio-2.0.0-macos-${PACKAGE_SUFFIX}.zip"
+          ditto -c -k --sequesterRsrc --keepParent \
+            build/bin/HarnessStudio.app "dist/$PACKAGE"
+          (
+            cd dist
+            shasum -a 256 "$PACKAGE" > "$PACKAGE.sha256"
+          )
+          echo "package=dist/$PACKAGE" >> "$GITHUB_OUTPUT"
+          echo "checksum=dist/$PACKAGE.sha256" >> "$GITHUB_OUTPUT"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: HarnessStudio-2.0.0-macos-${{ matrix.suffix }}
+          path: |
+            ${{ steps.package.outputs.package }}
+            ${{ steps.package.outputs.checksum }}
+            executable-info.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Attach package to GitHub Release
+        if: ${{ inputs.release_tag != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          gh release upload "$RELEASE_TAG" \
+            "${{ steps.package.outputs.package }}" \
+            "${{ steps.package.outputs.checksum }}" \
+            --clobber \
+            --repo "$GITHUB_REPOSITORY"
