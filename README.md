@@ -13,6 +13,20 @@ Harness Studio 是 DeepSeek Harness 的跨平台可视化部署与运行控制�
 
 macOS 测试包已进行临时签名，尚未使用 Apple Developer ID 完成公证。请先核对 Release 中的 SHA-256；如果系统拦截，可在“系统设置 → 隐私与安全性”中确认“仍要打开”。
 
+## 软件截图
+
+### 一键安装首页
+
+![Harness Studio 一键安装首页](docs/images/overview.png)
+
+### 简易网络设置
+
+![Harness Studio 网络设置](docs/images/network-settings.png)
+
+### 镜像源与代理设置
+
+![Harness Studio 镜像源与代理设置](docs/images/mirrors-and-proxy.png)
+
 ## 已实现功能
 
 - 一键下载、校验、安装并启动 DeepSeek Harness
